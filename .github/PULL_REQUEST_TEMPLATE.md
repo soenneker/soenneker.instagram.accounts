@@ -2,7 +2,7 @@
 
 ## Description
 
-Please include a summary of the changes and the related issue. 
+Please include a summary of the changes and the related issue.
 Clearly describe the problem and how this PR addresses it.
 
 Fixes: #<issue-number> (if applicable)
