@@ -18,7 +18,7 @@ public sealed class PublishingTests
     private const string Ready = """{"status_code":"FINISHED"}""";
 
     [Test]
-    public async Task Photo_encodes_caption_and_waits_before_publishing()
+    public async ValueTask Photo_encodes_caption_and_waits_before_publishing()
     {
         using var f = new Fixture("""{"id":"container"}""", """{"status_code":"IN_PROGRESS"}""", Ready, """{"id":"post"}""");
         Check(await f.Util.PublishPhoto("account", "https://example.com/image.jpg?x=1&y=2", "Hello & + café", "Alt text", Fast) == "post");
@@ -33,7 +33,7 @@ public sealed class PublishingTests
     }
 
     [Test]
-    public async Task Carousel_preserves_order_and_publishes_only_parent()
+    public async ValueTask Carousel_preserves_order_and_publishes_only_parent()
     {
         using var f = new Fixture("""{"id":"one"}""", Ready, """{"id":"two"}""", Ready, """{"id":"parent"}""", Ready, """{"id":"post"}""");
         Check(await f.Util.PublishPost("account", "Caption", ["https://example.com/1.jpg", "https://example.com/2.jpg"], options: Fast) == "post");
@@ -44,7 +44,7 @@ public sealed class PublishingTests
     }
 
     [Test]
-    public async Task Single_image_post_works_without_caption()
+    public async ValueTask Single_image_post_works_without_caption()
     {
         using var f = new Fixture("""{"id":"container"}""", Ready, """{"id":"post"}""");
         Check(await f.Util.PublishPost("account", imageUrls: ["https://example.com/1.jpg"], options: Fast) == "post");
@@ -52,7 +52,7 @@ public sealed class PublishingTests
     }
 
     [Test]
-    public async Task Reel_works_without_image_or_caption()
+    public async ValueTask Reel_works_without_image_or_caption()
     {
         using var f = new Fixture("""{"id":"container"}""", Ready, """{"id":"reel"}""");
         Check(await f.Util.PublishPost("account", videoUrl: "https://example.com/video.mp4", options: Fast) == "reel");
@@ -62,7 +62,7 @@ public sealed class PublishingTests
     }
 
     [Test]
-    public async Task Text_only_is_rejected_before_requests()
+    public async ValueTask Text_only_is_rejected_before_requests()
     {
         using var f = new Fixture();
         await Throws<NotSupportedException>(() => f.Util.PublishPost("account", "Text only").AsTask());
@@ -70,7 +70,7 @@ public sealed class PublishingTests
     }
 
     [Test]
-    public async Task Invalid_batches_and_options_do_not_create_containers()
+    public async ValueTask Invalid_batches_and_options_do_not_create_containers()
     {
         using var f = new Fixture();
         await Throws<ArgumentException>(() => f.Util.PublishPhotos("account", ["https://example.com/1.jpg", "file:///bad.jpg"]).AsTask());
@@ -87,7 +87,7 @@ public sealed class PublishingTests
     [Arguments("PUBLISHED")]
     [Arguments("UNKNOWN")]
     [Arguments("")]
-    public async Task Nonready_status_prevents_publish(string status)
+    public async ValueTask Nonready_status_prevents_publish(string status)
     {
         using var f = new Fixture("""{"id":"container"}""", "{\"status_code\":\"" + status + "\",\"status\":\"details\"}");
         var e = await Throws<InvalidOperationException>(() => f.Util.PublishReel("account", "https://example.com/video.mp4", options: Fast).AsTask());
@@ -95,7 +95,7 @@ public sealed class PublishingTests
     }
 
     [Test]
-    public async Task Missing_container_id_stops_immediately()
+    public async ValueTask Missing_container_id_stops_immediately()
     {
         using var f = new Fixture("{}");
         await Throws<InvalidOperationException>(() => f.Util.PublishPhoto("account", "https://example.com/image.jpg").AsTask());
@@ -103,7 +103,7 @@ public sealed class PublishingTests
     }
 
     [Test]
-    public async Task Missing_published_id_does_not_report_success()
+    public async ValueTask Missing_published_id_does_not_report_success()
     {
         using var f = new Fixture(Ready, "{}");
         var e = await Throws<InvalidOperationException>(() => f.Util.PublishContainer("account", "container", Fast).AsTask());
@@ -111,7 +111,7 @@ public sealed class PublishingTests
     }
 
     [Test]
-    public async Task Timeout_includes_container_and_does_not_publish()
+    public async ValueTask Timeout_includes_container_and_does_not_publish()
     {
         using var f = new Fixture("""{"status_code":"IN_PROGRESS"}""");
         var options = new InstagramPublishingOptions { PollInterval = TimeSpan.FromMilliseconds(50), ProcessingTimeout = TimeSpan.FromMilliseconds(50) };
@@ -120,7 +120,7 @@ public sealed class PublishingTests
     }
 
     [Test]
-    public async Task Cancellation_during_processing_stops_before_publish()
+    public async ValueTask Cancellation_during_processing_stops_before_publish()
     {
         using var f = new Fixture("""{"status_code":"IN_PROGRESS"}""");
         using var cts = new CancellationTokenSource();
@@ -130,7 +130,7 @@ public sealed class PublishingTests
     }
 
     [Test]
-    public async Task Precancelled_publish_makes_no_requests()
+    public async ValueTask Precancelled_publish_makes_no_requests()
     {
         using var f = new Fixture();
         using var cts = new CancellationTokenSource();
@@ -140,7 +140,7 @@ public sealed class PublishingTests
     }
 
     [Test]
-    public async Task Resume_publishes_existing_container_without_creating_another()
+    public async ValueTask Resume_publishes_existing_container_without_creating_another()
     {
         using var f = new Fixture(Ready, """{"id":"post"}""");
         Check(await f.Util.PublishContainer("account", "existing", Fast) == "post");
@@ -148,7 +148,7 @@ public sealed class PublishingTests
     }
 
     [Test]
-    public async Task Api_failure_propagates_without_publishing()
+    public async ValueTask Api_failure_propagates_without_publishing()
     {
         using var f = new Fixture("""{"error":{"message":"Denied","code":10}}""");
         f.Handler.StatusCode = HttpStatusCode.BadRequest;
