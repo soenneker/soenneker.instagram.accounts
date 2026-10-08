@@ -18,10 +18,10 @@ public sealed class PublishingTests
     private const string Ready = """{"status_code":"FINISHED"}""";
 
     [Test]
-    public async ValueTask Photo_encodes_caption_and_waits_before_publishing()
+    public async ValueTask Photo_encodes_caption_and_waits_before_publishing(CancellationToken cancellationToken)
     {
         using var f = new Fixture("""{"id":"container"}""", """{"status_code":"IN_PROGRESS"}""", Ready, """{"id":"post"}""");
-        Check(await f.Util.PublishPhoto("account", "https://example.com/image.jpg?x=1&y=2", "Hello & + café", "Alt text", Fast) == "post");
+        Check(await f.Util.PublishPhoto("account", "https://example.com/image.jpg?x=1&y=2", "Hello & + café", "Alt text", Fast, cancellationToken: cancellationToken) == "post");
         var requests = f.Handler.Requests;
         Check(requests.Count == 4);
         Check(requests[0].Path == "/v26.0/account/media" && requests[0].Method == "POST");
@@ -33,10 +33,10 @@ public sealed class PublishingTests
     }
 
     [Test]
-    public async ValueTask Carousel_preserves_order_and_publishes_only_parent()
+    public async ValueTask Carousel_preserves_order_and_publishes_only_parent(CancellationToken cancellationToken)
     {
         using var f = new Fixture("""{"id":"one"}""", Ready, """{"id":"two"}""", Ready, """{"id":"parent"}""", Ready, """{"id":"post"}""");
-        Check(await f.Util.PublishPost("account", "Caption", ["https://example.com/1.jpg", "https://example.com/2.jpg"], options: Fast) == "post");
+        Check(await f.Util.PublishPost("account", "Caption", ["https://example.com/1.jpg", "https://example.com/2.jpg"], options: Fast, cancellationToken: cancellationToken) == "post");
         var r = f.Handler.Requests;
         Check(r.Count == 7 && r[0].Form["is_carousel_item"] == "true" && r[2].Form["is_carousel_item"] == "true");
         Check(r[4].Form["media_type"] == "CAROUSEL" && r[4].Form["children"] == "one,two" && r[4].Form["caption"] == "Caption");
@@ -44,40 +44,40 @@ public sealed class PublishingTests
     }
 
     [Test]
-    public async ValueTask Single_image_post_works_without_caption()
+    public async ValueTask Single_image_post_works_without_caption(CancellationToken cancellationToken)
     {
         using var f = new Fixture("""{"id":"container"}""", Ready, """{"id":"post"}""");
-        Check(await f.Util.PublishPost("account", imageUrls: ["https://example.com/1.jpg"], options: Fast) == "post");
+        Check(await f.Util.PublishPost("account", imageUrls: ["https://example.com/1.jpg"], options: Fast, cancellationToken: cancellationToken) == "post");
         Check(!f.Handler.Requests[0].Form.ContainsKey("caption") && !f.Handler.Requests[0].Form.ContainsKey("children"));
     }
 
     [Test]
-    public async ValueTask Reel_works_without_image_or_caption()
+    public async ValueTask Reel_works_without_image_or_caption(CancellationToken cancellationToken)
     {
         using var f = new Fixture("""{"id":"container"}""", Ready, """{"id":"reel"}""");
-        Check(await f.Util.PublishPost("account", videoUrl: "https://example.com/video.mp4", options: Fast) == "reel");
+        Check(await f.Util.PublishPost("account", videoUrl: "https://example.com/video.mp4", options: Fast, cancellationToken: cancellationToken) == "reel");
         var body = f.Handler.Requests[0].Form;
         Check(body["media_type"] == "REELS" && body["video_url"] == "https://example.com/video.mp4" && body["share_to_feed"] == "true");
         Check(!body.ContainsKey("image_url") && !body.ContainsKey("caption"));
     }
 
     [Test]
-    public async ValueTask Text_only_is_rejected_before_requests()
+    public async ValueTask Text_only_is_rejected_before_requests(CancellationToken cancellationToken)
     {
         using var f = new Fixture();
-        await Throws<NotSupportedException>(() => f.Util.PublishPost("account", "Text only").AsTask());
+        await Throws<NotSupportedException>(() => f.Util.PublishPost("account", "Text only", cancellationToken: cancellationToken).AsTask());
         Check(f.Handler.Requests.Count == 0);
     }
 
     [Test]
-    public async ValueTask Invalid_batches_and_options_do_not_create_containers()
+    public async ValueTask Invalid_batches_and_options_do_not_create_containers(CancellationToken cancellationToken)
     {
         using var f = new Fixture();
-        await Throws<ArgumentException>(() => f.Util.PublishPhotos("account", ["https://example.com/1.jpg", "file:///bad.jpg"]).AsTask());
-        await Throws<ArgumentException>(() => f.Util.PublishPhotos("account", []).AsTask());
-        await Throws<ArgumentException>(() => f.Util.PublishPhotos("account", Enumerable.Repeat("https://example.com/1.jpg", 11).ToArray()).AsTask());
-        await Throws<ArgumentException>(() => f.Util.PublishPost("account", imageUrls: ["https://example.com/1.jpg"], videoUrl: "https://example.com/1.mp4").AsTask());
-        await Throws<ArgumentOutOfRangeException>(() => f.Util.PublishPhoto("account", "https://example.com/1.jpg", options: new() { PollInterval = TimeSpan.Zero }).AsTask());
+        await Throws<ArgumentException>(() => f.Util.PublishPhotos("account", ["https://example.com/1.jpg", "file:///bad.jpg"], cancellationToken: cancellationToken).AsTask());
+        await Throws<ArgumentException>(() => f.Util.PublishPhotos("account", [], cancellationToken: cancellationToken).AsTask());
+        await Throws<ArgumentException>(() => f.Util.PublishPhotos("account", Enumerable.Repeat("https://example.com/1.jpg", 11).ToArray(), cancellationToken: cancellationToken).AsTask());
+        await Throws<ArgumentException>(() => f.Util.PublishPost("account", imageUrls: ["https://example.com/1.jpg"], videoUrl: "https://example.com/1.mp4", cancellationToken: cancellationToken).AsTask());
+        await Throws<ArgumentOutOfRangeException>(() => f.Util.PublishPhoto("account", "https://example.com/1.jpg", options: new() { PollInterval = TimeSpan.Zero }, cancellationToken: cancellationToken).AsTask());
         Check(f.Handler.Requests.Count == 0);
     }
 
@@ -87,40 +87,40 @@ public sealed class PublishingTests
     [Arguments("PUBLISHED")]
     [Arguments("UNKNOWN")]
     [Arguments("")]
-    public async ValueTask Nonready_status_prevents_publish(string status)
+    public async ValueTask Nonready_status_prevents_publish(string status, CancellationToken cancellationToken)
     {
         using var f = new Fixture("""{"id":"container"}""", "{\"status_code\":\"" + status + "\",\"status\":\"details\"}");
-        var e = await Throws<InvalidOperationException>(() => f.Util.PublishReel("account", "https://example.com/video.mp4", options: Fast).AsTask());
+        var e = await Throws<InvalidOperationException>(() => f.Util.PublishReel("account", "https://example.com/video.mp4", options: Fast, cancellationToken: cancellationToken).AsTask());
         Check(e.Message.Contains("container") && f.Handler.Requests.Count == 2);
     }
 
     [Test]
-    public async ValueTask Missing_container_id_stops_immediately()
+    public async ValueTask Missing_container_id_stops_immediately(CancellationToken cancellationToken)
     {
         using var f = new Fixture("{}");
-        await Throws<InvalidOperationException>(() => f.Util.PublishPhoto("account", "https://example.com/image.jpg").AsTask());
+        await Throws<InvalidOperationException>(() => f.Util.PublishPhoto("account", "https://example.com/image.jpg", cancellationToken: cancellationToken).AsTask());
         Check(f.Handler.Requests.Count == 1);
     }
 
     [Test]
-    public async ValueTask Missing_published_id_does_not_report_success()
+    public async ValueTask Missing_published_id_does_not_report_success(CancellationToken cancellationToken)
     {
         using var f = new Fixture(Ready, "{}");
-        var e = await Throws<InvalidOperationException>(() => f.Util.PublishContainer("account", "container", Fast).AsTask());
+        var e = await Throws<InvalidOperationException>(() => f.Util.PublishContainer("account", "container", Fast, cancellationToken: cancellationToken).AsTask());
         Check(e.Message.Contains("container") && f.Handler.Requests.Count == 2);
     }
 
     [Test]
-    public async ValueTask Timeout_includes_container_and_does_not_publish()
+    public async ValueTask Timeout_includes_container_and_does_not_publish(CancellationToken cancellationToken)
     {
         using var f = new Fixture("""{"status_code":"IN_PROGRESS"}""");
         var options = new InstagramPublishingOptions { PollInterval = TimeSpan.FromMilliseconds(50), ProcessingTimeout = TimeSpan.FromMilliseconds(50) };
-        var e = await Throws<TimeoutException>(() => f.Util.PublishContainer("account", "existing", options).AsTask());
+        var e = await Throws<TimeoutException>(() => f.Util.PublishContainer("account", "existing", options, cancellationToken: cancellationToken).AsTask());
         Check(e.Message.Contains("existing") && f.Handler.Requests.All(x => x.Method == "GET"));
     }
 
     [Test]
-    public async ValueTask Cancellation_during_processing_stops_before_publish()
+    public async ValueTask Cancellation_during_processing_stops_before_publish(CancellationToken cancellationToken)
     {
         using var f = new Fixture("""{"status_code":"IN_PROGRESS"}""");
         using var cts = new CancellationTokenSource();
@@ -130,7 +130,7 @@ public sealed class PublishingTests
     }
 
     [Test]
-    public async ValueTask Precancelled_publish_makes_no_requests()
+    public async ValueTask Precancelled_publish_makes_no_requests(CancellationToken cancellationToken)
     {
         using var f = new Fixture();
         using var cts = new CancellationTokenSource();
@@ -140,19 +140,19 @@ public sealed class PublishingTests
     }
 
     [Test]
-    public async ValueTask Resume_publishes_existing_container_without_creating_another()
+    public async ValueTask Resume_publishes_existing_container_without_creating_another(CancellationToken cancellationToken)
     {
         using var f = new Fixture(Ready, """{"id":"post"}""");
-        Check(await f.Util.PublishContainer("account", "existing", Fast) == "post");
+        Check(await f.Util.PublishContainer("account", "existing", Fast, cancellationToken: cancellationToken) == "post");
         Check(f.Handler.Requests.Count == 2 && f.Handler.Requests[1].Form["creation_id"] == "existing");
     }
 
     [Test]
-    public async ValueTask Api_failure_propagates_without_publishing()
+    public async ValueTask Api_failure_propagates_without_publishing(CancellationToken cancellationToken)
     {
         using var f = new Fixture("""{"error":{"message":"Denied","code":10}}""");
         f.Handler.StatusCode = HttpStatusCode.BadRequest;
-        await Throws<Microsoft.Kiota.Abstractions.ApiException>(() => f.Util.PublishPhoto("account", "https://example.com/1.jpg").AsTask());
+        await Throws<Microsoft.Kiota.Abstractions.ApiException>(() => f.Util.PublishPhoto("account", "https://example.com/1.jpg", cancellationToken: cancellationToken).AsTask());
         Check(f.Handler.Requests.Count == 1);
     }
 
