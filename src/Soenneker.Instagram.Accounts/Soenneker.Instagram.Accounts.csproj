@@ -45,7 +45,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Soenneker.Instagram.OpenApiClientUtil" Version="11.0.46" />
+        <PackageReference Include="Soenneker.Instagram.OpenApiClientUtil" Version="11.0.47" />
         <PackageReference Include="Soenneker.Instagram.OpenApiClient" Version="11.0.41" />
     </ItemGroup>
 </Project>
